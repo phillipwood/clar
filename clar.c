@@ -66,26 +66,20 @@
 
 #	ifndef __MINGW32__
 #		pragma comment(lib, "shell32")
-#		ifndef strncpy
-#			define strncpy(to, from, to_size) strncpy_s(to, to_size, from, _TRUNCATE)
-#		endif
 #		ifndef W_OK
 #			define W_OK 02
 #		endif
 #		ifndef S_ISDIR
 #			define S_ISDIR(x) ((x & _S_IFDIR) != 0)
 #		endif
-#		define p_snprintf(buf,sz,fmt,...) _snprintf_s(buf,sz,_TRUNCATE,fmt,__VA_ARGS__)
 #		define p_vsnprintf(buf,sz,fmt,args) _vsnprintf_s(buf,sz,_TRUNCATE,fmt,args)
 #	else
-#		define p_snprintf snprintf
 #		define p_vsnprintf vsnprintf
 #	endif
 #else
 #	include <sys/wait.h> /* waitpid(2) */
 #	include <unistd.h>
 #	define _MAIN_CC
-#	define p_snprintf snprintf
 #	define p_vsnprintf vsnprintf
 	typedef struct stat STAT_T;
 #endif
