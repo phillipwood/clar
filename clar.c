@@ -785,6 +785,51 @@ static void buf_addf(char **buf_p, size_t *buf_sz, const char *fmt, ...)
 	va_end(args);
 }
 
+static void buf_add_quoted_char(char **buf_p, size_t *buf_sz, unsigned char ch)
+{
+	char *str = NULL;
+
+	switch (ch) {
+	case '\0':
+		str = "\\0";
+		break;
+	case '\a':
+		str = "\\a";
+		break;
+	case '\b':
+		str = "\\b";
+		break;
+	case '\f':
+		str = "\\f";
+		break;
+	case '\n':
+		str = "\\n";
+		break;
+	case '\r':
+		str = "\\r";
+		break;
+	case '\t':
+		str = "\\t";
+		break;
+	case '\v':
+		str = "\\v";
+		break;
+	case '\'':
+		str = "\\'";
+		break;
+	case '\\':
+		str = "\\\\";
+		break;
+	}
+
+	if (str)
+		buf_addf(buf_p, buf_sz, "'%s'", str);
+	else if (ch < 0x20 || ch > 0x7e)
+		buf_addf(buf_p, buf_sz, "'\\%03o'", ch);
+	else
+		buf_addf(buf_p, buf_sz, "'%c'", ch);
+}
+
 void clar__assert(
 	int condition,
 	const char *file,
@@ -909,6 +954,15 @@ void clar__assert_equal(
 		}
 	}
 #endif /* CLAR_HAVE_WCHAR */
+	else if (!strcmp("%c", fmt)) {
+		unsigned char ch1 = va_arg(args, int), ch2 = va_arg(args, int);
+		is_equal = (ch1 == ch2);
+		if (!is_equal) {
+			buf_add_quoted_char(&buf_p, &buf_sz, ch1);
+			buf_add_str(&buf_p, &buf_sz, " != ");
+			buf_add_quoted_char(&buf_p, &buf_sz, ch2);
+		}
+	}
 	else if (!strcmp("%"PRIuMAX, fmt) || !strcmp("%"PRIxMAX, fmt)) {
 		uintmax_t sz1 = va_arg(args, uintmax_t), sz2 = va_arg(args, uintmax_t);
 		is_equal = (sz1 == sz2);

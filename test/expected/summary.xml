@@ -1,5 +1,5 @@
 <testsuites>
-	<testsuite id="0" name="selftest" hostname="localhost" timestamp="2024-09-06T10:04:08" tests="8" failures="8" errors="0">
+	<testsuite id="0" name="selftest" hostname="localhost" timestamp="2024-09-06T10:04:08" tests="9" failures="9" errors="0">
 		<testcase name="1" classname="selftest" time="0.00">
 			<failure type="assert"><![CDATA[Function call failed: -1
 (null)]]></failure>
@@ -40,6 +40,10 @@ description line 2]]></failure>
 		<testcase name="null_string" classname="selftest" time="0.00">
 			<failure type="assert"><![CDATA[String mismatch: "expected" != actual ("this one fails")
 'expected' != NULL]]></failure>
+		</testcase>
+		<testcase name="char" classname="selftest" time="0.00">
+			<failure type="assert"><![CDATA[expect != actual ("this one fails")
+'a' != '\n']]></failure>
 		</testcase>
 	</testsuite>
 </testsuites>

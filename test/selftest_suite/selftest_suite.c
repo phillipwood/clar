@@ -90,3 +90,10 @@ void test_selftest_suite__null_string(void)
 	cl_assert_equal_s(actual, actual);
 	cl_assert_equal_s_("expected", actual, "this one fails");
 }
+
+void test_selftest_suite__char(void)
+{
+	char expect = 'a', actual = '\n';
+	cl_assert_equal_c(expect, 'a');
+	cl_assert_equal_c_(expect, actual, "this one fails");
+}
