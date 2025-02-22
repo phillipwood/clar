@@ -76,14 +76,17 @@
 #			define S_ISDIR(x) ((x & _S_IFDIR) != 0)
 #		endif
 #		define p_snprintf(buf,sz,fmt,...) _snprintf_s(buf,sz,_TRUNCATE,fmt,__VA_ARGS__)
+#		define p_vsnprintf(buf,sz,fmt,args) _vsnprintf_s(buf,sz,_TRUNCATE,fmt,args)
 #	else
 #		define p_snprintf snprintf
+#		define p_vsnprintf vsnprintf
 #	endif
 #else
 #	include <sys/wait.h> /* waitpid(2) */
 #	include <unistd.h>
 #	define _MAIN_CC
 #	define p_snprintf snprintf
+#	define p_vsnprintf vsnprintf
 	typedef struct stat STAT_T;
 #endif
 
@@ -744,6 +747,44 @@ void clar__fail(
 		abort_test();
 }
 
+static void buf_add_str(char **buf_p, size_t *buf_sz, const char* str)
+{
+	char *p = *buf_p;
+	size_t sz = *buf_sz;
+
+	if (!sz)
+		return;
+
+	for (; *str && sz > 1; p++, str++, sz--)
+		*p = *str;
+	*p = '\0';
+
+	*buf_p = p;
+	*buf_sz = sz;
+}
+
+static void buf_vaddf(char **buf_p, size_t *buf_sz, const char *fmt, va_list args)
+{
+	int len = p_vsnprintf(*buf_p, *buf_sz, fmt, args);
+
+	if (len < 0)
+		clar_abort("vsnprint failed");
+	else if (len > *buf_sz)
+		len = *buf_sz;
+
+	*buf_p += len;
+	*buf_sz -= len;
+}
+
+static void buf_addf(char **buf_p, size_t *buf_sz, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	buf_vaddf(buf_p, buf_sz, fmt, args);
+	va_end(args);
+}
+
 void clar__assert(
 	int condition,
 	const char *file,
@@ -770,6 +811,8 @@ void clar__assert_equal(
 {
 	va_list args;
 	char buf[4096];
+	char *buf_p = buf; /* current position in buf */
+	size_t buf_sz = sizeof(buf); /* space remaining in buf */
 	int is_equal = 1;
 
 	va_start(args, fmt);
@@ -784,15 +827,15 @@ void clar__assert_equal(
 				int pos;
 				for (pos = 0; s1[pos] == s2[pos] && s1[pos] && s2[pos]; ++pos)
 					/* find differing byte offset */;
-				p_snprintf(buf, sizeof(buf), "'%s' != '%s' (at byte %d)",
+				buf_addf(&buf_p, &buf_sz, "'%s' != '%s' (at byte %d)",
 					s1, s2, pos);
 			} else {
 				const char *q1 = s1 ? "'" : "";
 				const char *q2 = s2 ? "'" : "";
 				s1 = s1 ? s1 : "NULL";
 				s2 = s2 ? s2 : "NULL";
-				p_snprintf(buf, sizeof(buf), "%s%s%s != %s%s%s",
-					   q1, s1, q1, q2, s2, q2);
+				buf_addf(&buf_p, &buf_sz, "%s%s%s != %s%s%s",
+					 q1, s1, q1, q2, s2, q2);
 			}
 		}
 	}
@@ -807,15 +850,15 @@ void clar__assert_equal(
 				int pos;
 				for (pos = 0; s1[pos] == s2[pos] && pos < len; ++pos)
 					/* find differing byte offset */;
-				p_snprintf(buf, sizeof(buf), "'%.*s' != '%.*s' (at byte %d)",
+				buf_addf(&buf_p, &buf_sz, "'%.*s' != '%.*s' (at byte %d)",
 					len, s1, len, s2, pos);
 			} else {
 				const char *q1 = s1 ? "'" : "";
 				const char *q2 = s2 ? "'" : "";
 				s1 = s1 ? s1 : "NULL";
 				s2 = s2 ? s2 : "NULL";
-				p_snprintf(buf, sizeof(buf), "%s%.*s%s != %s%.*s%s",
-					   q1, len, s1, q1, q2, len, s2, q2);
+				buf_addf(&buf_p, &buf_sz, "%s%.*s%s != %s%.*s%s",
+					 q1, len, s1, q1, q2, len, s2, q2);
 			}
 		}
 	}
@@ -830,15 +873,15 @@ void clar__assert_equal(
 				int pos;
 				for (pos = 0; wcs1[pos] == wcs2[pos] && wcs1[pos] && wcs2[pos]; ++pos)
 					/* find differing byte offset */;
-				p_snprintf(buf, sizeof(buf), "'%ls' != '%ls' (at byte %d)",
+				buf_addf(&buf_p, &buf_sz, "'%ls' != '%ls' (at byte %d)",
 					wcs1, wcs2, pos);
 			} else {
 				const char *q1 = wcs1 ? "'" : "";
 				const char *q2 = wcs2 ? "'" : "";
 				wcs1 = wcs1 ? wcs1 : L"NULL";
 				wcs2 = wcs2 ? wcs2 : L"NULL";
-				p_snprintf(buf, sizeof(buf), "%s%ls%s != %s%ls%s",
-					   q1, wcs1, q1, q2, wcs2, q2);
+				buf_addf(&buf_p, &buf_sz, "%s%ls%s != %s%ls%s",
+					 q1, wcs1, q1, q2, wcs2, q2);
 			}
 		}
 	}
@@ -853,15 +896,15 @@ void clar__assert_equal(
 				int pos;
 				for (pos = 0; wcs1[pos] == wcs2[pos] && pos < len; ++pos)
 					/* find differing byte offset */;
-				p_snprintf(buf, sizeof(buf), "'%.*ls' != '%.*ls' (at byte %d)",
+				buf_addf(&buf_p, &buf_sz, "'%.*ls' != '%.*ls' (at byte %d)",
 					len, wcs1, len, wcs2, pos);
 			} else {
 				const char *q1 = wcs1 ? "'" : "";
 				const char *q2 = wcs2 ? "'" : "";
 				wcs1 = wcs1 ? wcs1 : L"NULL";
 				wcs2 = wcs2 ? wcs2 : L"NULL";
-				p_snprintf(buf, sizeof(buf), "%s%.*ls%s != %s%.*ls%s",
-					   q1, len, wcs1, q1, q2, len, wcs2, q2);
+				buf_addf(&buf_p, &buf_sz, "%s%.*ls%s != %s%.*ls%s",
+					 q1, len, wcs1, q1, q2, len, wcs2, q2);
 			}
 		}
 	}
@@ -870,25 +913,25 @@ void clar__assert_equal(
 		uintmax_t sz1 = va_arg(args, uintmax_t), sz2 = va_arg(args, uintmax_t);
 		is_equal = (sz1 == sz2);
 		if (!is_equal) {
-			int offset = p_snprintf(buf, sizeof(buf), fmt, sz1);
-			strncat(buf, " != ", sizeof(buf) - offset);
-			p_snprintf(buf + offset + 4, sizeof(buf) - offset - 4, fmt, sz2);
+			buf_addf(&buf_p, &buf_sz, fmt, sz1);
+			buf_add_str(&buf_p, &buf_sz, " != ");
+			buf_addf(&buf_p, &buf_sz, fmt, sz2);
 		}
 	}
 	else if (!strcmp("%p", fmt)) {
 		void *p1 = va_arg(args, void *), *p2 = va_arg(args, void *);
 		is_equal = (p1 == p2);
 		if (!is_equal)
-			p_snprintf(buf, sizeof(buf), "0x%"PRIxPTR" != 0x%"PRIxPTR,
+			buf_addf(&buf_p, &buf_sz, "0x%"PRIxPTR" != 0x%"PRIxPTR,
 				   (uintptr_t)p1, (uintptr_t)p2);
 	}
 	else {
 		int i1 = va_arg(args, int), i2 = va_arg(args, int);
 		is_equal = (i1 == i2);
 		if (!is_equal) {
-			int offset = p_snprintf(buf, sizeof(buf), fmt, i1);
-			strncat(buf, " != ", sizeof(buf) - offset);
-			p_snprintf(buf + offset + 4, sizeof(buf) - offset - 4, fmt, i2);
+			buf_addf(&buf_p, &buf_sz, fmt, i1);
+			buf_add_str(&buf_p, &buf_sz, " != ");
+			buf_addf(&buf_p, &buf_sz, fmt, i2);
 		}
 	}
 
